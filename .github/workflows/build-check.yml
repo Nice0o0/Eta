@@ -1,0 +1,86 @@
+name: Build Check
+
+# 仅用于验证改动的可编译性：在 fork 分支上构建 Debug APK 并跑单元测试，
+# 不参与上游发版流程，也不需要任何签名 Secrets。
+on:
+  push:
+    branches:
+      - "feat/**"
+      - "verify/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Debug 构建与单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置构建环境
+        uses: ./.github/actions/setup-build
+
+      - name: 安装 NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ndk_version="$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
+          echo "NDK 版本：$ndk_version"
+          yes | sdkmanager --channel=3 "ndk;$ndk_version" || yes | sdkmanager "ndk;$ndk_version"
+          sdkmanager --list_installed | sed -n '1,40p'
+
+      - name: 打印构建环境
+        shell: bash
+        run: |
+          java -version || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+
+      - name: 构建 Debug APK 并编译测试
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: >-
+          ./gradlew --no-daemon --no-configuration-cache --continue
+          "-Peta.buildMetadata=${HEAD_SHA::7}"
+          :app:assembleDebug :app:compileDebugUnitTestKotlin
+
+      - name: 运行单元测试
+        if: success()
+        run: >-
+          ./gradlew --no-daemon --no-configuration-cache
+          :app:testDebugUnitTest
+
+      - name: 收集构建产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eta-build-check
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/reports/lint-results-debug.html
+            app/build/reports/tests/**
+            app/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: 失败时上传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eta-build-check-logs
+          path: |
+            app/build/reports/**
+            app/build/tmp/**
+          if-no-files-found: ignore
+          retention-days: 7
