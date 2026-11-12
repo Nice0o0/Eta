@@ -55,7 +55,7 @@ internal data class TerminalExecutionContext(
         append(identityFor(TerminalEnvironment.ANDROID, rootAvailable))
         append("，工作区=")
         append(JSONObject.quote(androidWorkspacePath))
-        append("。已授权 Root 时直接使用 Root，未确认授权时使用 App 身份。identity=user 可显式选择普通身份；工作目录不因身份变化而移动。\n")
+        append("。已授权 Root 时使用 Root；未授权但已授权 Shizuku 时使用 shell（uid 2000）；两者都不可用时使用 App 身份。identity=user 可显式选择普通身份；工作目录不因身份变化而移动。\n")
         append("environment=linux 使用已选择的 ")
         append(linuxEnvironment.wireName)
         append("，backend=")

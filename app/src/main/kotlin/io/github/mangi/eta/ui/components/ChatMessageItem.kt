@@ -486,6 +486,7 @@ private fun UserMessageBubble(
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
+                    MessageTimestampLabel(timestampMillis = message.createdAt, textAlign = TextAlign.End)
                 }
                 Menu(
                     expanded = showCouiMenu && actionsEnabled,
@@ -609,6 +610,7 @@ private fun UserMessageBubble(
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
+                    MessageTimestampLabel(timestampMillis = message.createdAt, textAlign = TextAlign.End)
                 }
             }
         }
@@ -1112,12 +1114,6 @@ private fun AgentMessageBlock(
                             )
                         }
                     }
-                    if (!assistantOverlay && message.usage != null && message.usage.hasPerformanceStats) {
-                        TurnStatsPill(
-                            usage = message.usage,
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
                     if (message.characterEditable && message.candidateCount > 1) {
                         Spacer(Modifier.weight(1f))
                         CandidateSwitcher(
@@ -1128,7 +1124,22 @@ private fun AgentMessageBlock(
                         )
                     }
                 }
+                // 性能读数不依赖操作按钮：只要这一轮带用量数据就显示，中间步骤同样可见。
+                if (!assistantOverlay && message.usage != null && message.usage.hasPerformanceStats) {
+                    TurnStatsPill(
+                        usage = message.usage,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
             }
+        }
+
+        // 每条回答都标注产生时间；历史消息没有记录时间时不显示，避免伪造。
+        if (!assistantOverlay && !message.isStreaming && message.createdAt != null) {
+            MessageTimestampLabel(
+                timestampMillis = message.createdAt,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }

@@ -2,7 +2,7 @@ package io.github.mangi.eta.agent.terminal
 
 import android.content.Context
 import io.github.mangi.eta.core.AndroidAgentLogger
-import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.PrivilegeAccess
 import io.github.mangi.eta.agent.runtime.AgentExecutionService
 import java.io.File
 
@@ -44,7 +44,10 @@ internal object TerminalRuntime {
         File(userWorkspacePath).mkdirs()
     }
 
-    val rootAvailable: Boolean get() = RootAccess.isGranted
+    /** Android 环境的特权身份可用：Root 或 Shizuku shell 任一即可。 */
+    val rootAvailable: Boolean get() = PrivilegeAccess.isGranted
+    /** chroot、mount、app_process 等只依赖真实 Root 的能力。 */
+    val rootOnlyAvailable: Boolean get() = PrivilegeAccess.rootOnlyGranted
     val publicStorageGranted: Boolean get() = appContext != null && android.os.Environment.isExternalStorageManager()
     val nativeLibraryDir: File? get() = appContext?.applicationInfo?.nativeLibraryDir?.let(::File)
     val userWorkspacePath: String get() = appContext?.let {

@@ -11,6 +11,14 @@
     <string name="capability_root_not_granted">未取得 Root 授權，目前使用一般模式</string>
     <string name="capability_root_request">授權</string>
     <string name="capability_root_refresh">重新檢查</string>
+    <!-- Shizuku：Root 之外的 shell（uid 2000）特權通道 -->
+    <string name="capability_shizuku">Shizuku</string>
+    <string name="capability_shizuku_summary">可選的無 Root 提權方式，以 shell 身分執行指令；需要 Shizuku 應用程式正在執行</string>
+    <string name="capability_shizuku_granted">已取得 shell 層級授權，指令以 uid 2000 執行</string>
+    <string name="capability_shizuku_not_granted">Shizuku 正在執行，但 Eta 尚未取得授權，可在此申請</string>
+    <string name="capability_shizuku_unavailable">Shizuku 未執行或未安裝；仍可使用 Root 與一般模式</string>
+    <string name="capability_shizuku_connecting">授權已通過，shell 服務將在首次執行時建立連線</string>
+    <string name="capability_shizuku_requesting">等待你在 Shizuku 中的確認…</string>
     <string name="capability_root_required">需要 Root 授權</string>
     <string name="capability_root_partial">目前使用一般能力，Root 可擴展操作範圍</string>
     <string name="capability_accessibility_required">開啟無障礙後可用</string>

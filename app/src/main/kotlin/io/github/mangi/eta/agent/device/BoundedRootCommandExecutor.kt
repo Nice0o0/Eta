@@ -16,7 +16,16 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class BoundedRootCommandExecutor(
     private val logger: AgentLogger,
-    private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
+    /** 特权是否可用：Root 或 Shizuku shell 任一即可；调用方可注入固定值用于探测。 */
+    private val rootAvailable: () -> Boolean = { PrivilegeAccess.isGranted },
+    /** 真正启动特权进程；默认按 Root→Shizuku 顺序降级。 */
+    private val processStarter: (String, Boolean) -> Process? = { script, requireRootUid ->
+        if (requireRootUid) {
+            runCatching { ProcessBuilder("su", "-c", script).redirectErrorStream(false).start() }.getOrNull()
+        } else {
+            PrivilegeAccess.startProcess(script, mergeStderr = false)
+        }
+    },
 ) : AutoCloseable {
     private val activeProcesses = ConcurrentHashMap.newKeySet<Process>()
     private val closed = AtomicBoolean(false)
@@ -30,14 +39,12 @@ internal class BoundedRootCommandExecutor(
         if (input != null && input.size > 128 * 1024) return Result.failed("ROOT_INPUT_LIMIT")
         if (closed.get()) return Result.failed("ROOT_EXECUTOR_CLOSED")
         if (!rootAvailable()) return Result.failed("ROOT_REQUIRED")
-        val envelope = RootCommandEnvelope(command)
-        val process = runCatching {
-            ProcessBuilder("su", "-c", envelope.script)
-                .redirectErrorStream(false)
-                .start()
-        }.getOrElse {
-            return Result.failed("ROOT_UNAVAILABLE")
-        }
+        // Root 优先；没有 Root 时由 Shizuku 以 shell 身份执行同一段脚本。
+        // 两条通道都不可用时仍按 Root 语义处理，让调用方拿到原有的 ROOT_UNAVAILABLE。
+        val requireRootUid = if (PrivilegeAccess.rootGranted) true else !PrivilegeAccess.shizukuGranted
+        val envelope = RootCommandEnvelope(command, requireRootUid = requireRootUid)
+        val process = runCatching { processStarter(envelope.script, requireRootUid) }.getOrNull()
+            ?: return Result.failed(if (requireRootUid) "ROOT_UNAVAILABLE" else "SHELL_UNAVAILABLE")
         if (!activeProcesses.add(process) || closed.get()) {
             terminate(process)
             return Result.failed("ROOT_EXECUTOR_CLOSED")
@@ -71,8 +78,9 @@ internal class BoundedRootCommandExecutor(
             val rootOutput = envelope.inspect(stderr.text)
             val inputWritten = inputFuture == null || runCatching { inputFuture.get(IO_JOIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }.isSuccess
             if (stderrRead != null && rootOutput.denied(completed)) {
-                RootAccess.markDenied()
-                logger.warn("Agent root access outcome=denied code=ROOT_REQUIRED")
+                // 只有 Root 通道才可能因授权被撤销而缺失标记；shell 通道的失败是连接问题。
+                if (requireRootUid && RootAccess.isGranted) RootAccess.markDenied()
+                logger.warn("Agent privilege outcome=denied code=ROOT_REQUIRED")
                 return Result.failed("ROOT_REQUIRED")
             }
             Result(
@@ -116,6 +124,8 @@ internal class BoundedRootCommandExecutor(
         runCatching { process.outputStream.close() }
         runCatching { process.inputStream.close() }
         runCatching { process.errorStream.close() }
+        // Shizuku 进程还要注销远端句柄，否则每次命令都会在服务端留下一条记录。
+        runCatching { (process as? io.github.mangi.eta.agent.device.shizuku.ShizukuShellProcess)?.release() }
     }
 
     private fun InputStream.readBounded(maxBytes: Int): BoundedOutput {

@@ -43,6 +43,20 @@ fun SystemEnhanceScreen(
             if (canRequestRoot) AgentSystemEnhanceAction.RequestRoot else AgentSystemEnhanceAction.RefreshRoot,
         )
     }
+    // Shizuku 已运行时才能申请；未安装时按钮只做状态刷新。
+    val canRequestShizuku = capabilities.shizuku.binderAlive && !capabilities.shizuku.isGranted
+    val shizukuButtonText = stringResource(
+        if (canRequestShizuku) R.string.capability_root_request else R.string.capability_root_refresh,
+    )
+    val onShizukuAction: () -> Unit = {
+        onAction(
+            if (canRequestShizuku) {
+                AgentSystemEnhanceAction.RequestShizuku
+            } else {
+                AgentSystemEnhanceAction.RefreshShizuku
+            },
+        )
+    }
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
@@ -63,6 +77,21 @@ fun SystemEnhanceScreen(
                                 minHeight = 32.dp,
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 onClick = onRootAction,
+                            )
+                        },
+                    )
+                    Divider()
+                    CouiPreference(
+                        title = stringResource(R.string.capability_shizuku),
+                        summary = capabilities.shizuku.description(context),
+                        showChevron = false,
+                        trailing = {
+                            CouiButton(
+                                text = shizukuButtonText,
+                                enabled = !capabilities.shizuku.isRequesting,
+                                minHeight = 32.dp,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                onClick = onShizukuAction,
                             )
                         },
                     )
@@ -152,6 +181,20 @@ fun SystemEnhanceScreen(
                                     minHeight = 32.dp,
                                     insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     onClick = onRootAction,
+                                )
+                            },
+                        )
+                        BasicComponent(
+                            title = stringResource(R.string.capability_shizuku),
+                            summary = capabilities.shizuku.description(context),
+                            endActions = {
+                                TextButton(
+                                    text = shizukuButtonText,
+                                    enabled = !capabilities.shizuku.isRequesting,
+                                    minWidth = 0.dp,
+                                    minHeight = 32.dp,
+                                    insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    onClick = onShizukuAction,
                                 )
                             },
                         )

@@ -12,7 +12,9 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.device.DeviceControlUnavailableException
+import io.github.mangi.eta.agent.device.PrivilegeAccess
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.ShizukuAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
@@ -1099,12 +1101,27 @@ internal class AgentLocalTools(
         }
         if (closed.get()) return errorResult("CANCELLED", "已取消等待 Root 检测")
         val state = RootAccess.state.value
+        val shizuku = ShizukuAccess.state.value
+        val privilege = PrivilegeAccess.isGranted
+        val message = when {
+            state.isGranted -> "已确认 Root 授权；后续新命令默认使用 Root"
+            shizuku.isGranted -> "未获得 Root，但已确认 Shizuku 授权；后续特权命令以 shell（uid 2000）身份执行"
+            else -> "尚未确认 Root 或 Shizuku 授权；请根据 status 检查授权或检测结果，默认 user 不表示终端不支持特权能力"
+        }
         return JSONObject().put("ok", true).put("tool", "terminal").put("action", "check_root")
             .put("root_available", state.isGranted).put("status", state.status.name.lowercase(Locale.ROOT))
             .put("checking", state.isChecking).put("su_present", state.suPresent)
-            .put("uid", if (state.isGranted) 0 else JSONObject.NULL)
-            .put("message", if (state.isGranted) "已确认 Root 授权；后续新命令默认使用 Root" else
-                "尚未确认 Root 授权；请根据 status 检查授权或检测结果，默认 user 不表示终端不支持 Root")
+            .put("privilege_available", privilege)
+            .put("privilege_backend", if (state.isGranted) "root" else if (shizuku.isGranted) "shizuku" else "none")
+            .put("shizuku_status", shizuku.status.name.lowercase(Locale.ROOT))
+            .put("shizuku_granted", shizuku.isGranted)
+            .put("shizuku_service_ready", shizuku.serviceReady)
+            .put("uid", when {
+                state.isGranted -> 0
+                shizuku.isGranted -> 2000
+                else -> JSONObject.NULL
+            })
+            .put("message", message)
             .toString()
     }
 

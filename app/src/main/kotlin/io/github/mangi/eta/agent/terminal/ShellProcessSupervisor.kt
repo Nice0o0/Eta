@@ -1,5 +1,8 @@
 package io.github.mangi.eta.agent.terminal
 
+import io.github.mangi.eta.agent.device.PrivilegeAccess
+import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.shizuku.ShizukuShellProcess
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -11,10 +14,12 @@ import kotlin.concurrent.thread
 internal class ShellProcessSupervisor(
     private val allowTreeFallback: Boolean = !isAndroidRuntime(),
     private val setsidCommand: String = "setsid",
-    private val rootAvailable: () -> Boolean = { TerminalRuntime.rootAvailable },
+    private val rootAvailable: () -> Boolean = { PrivilegeAccess.isGranted },
     private val ptyExecutable: () -> File? = { TerminalRuntime.nativeExecutable(PTY_EXECUTABLE) },
 ) {
     private companion object {
+        /** 与 EtaShellUserService 约定的归属标记目录（shell 可写，App 只经 binder 读取）。 */
+        const val SHIZUKU_OWNERSHIP_DIRECTORY = "/data/local/tmp/eta/owners"
         const val PROCESS_REAP_TIMEOUT_MS = 1_000L
         const val PROCESS_OWNERSHIP_WAIT_MS = 500L
         const val PROCESS_SIGNAL_TIMEOUT_MS = 1_000L
@@ -57,10 +62,17 @@ internal class ShellProcessSupervisor(
         }
         if (environment.isLinux && identity == "root" && LinuxEnvironmentPaths.backendOf(linuxRootfsPath) == LinuxExecutionBackend.PROOT) return null
         if (identity == "root" && !rootAvailable()) return null
-        val ownershipFile = runCatching {
-            File.createTempFile("eta-terminal-", ".owner")
-        }.getOrNull() ?: return null
+        val shellBackend = identity == "root" && !RootAccess.isGranted
         val ownershipToken = UUID.randomUUID().toString().replace("-", "")
+        // Shizuku 的 shell 无权写入 App 私有目录，归属标记改放 shell 可写目录，
+        // 由 UserService 读取后通过 binder 回传给 App。
+        val ownershipFile = runCatching {
+            if (shellBackend) {
+                File(SHIZUKU_OWNERSHIP_DIRECTORY, ownershipToken)
+            } else {
+                File.createTempFile("eta-terminal-", ".owner")
+            }
+        }.getOrNull() ?: return null
         val launcher = try {
             buildTrackedShellLauncher(
                 ownershipFile = ownershipFile,
@@ -82,16 +94,29 @@ internal class ShellProcessSupervisor(
             return null
         }
         val process = runCatching {
-            val builder = if (identity == "root") {
-                ProcessBuilder("su", "-c", launcher)
+            // 特权身份优先 Root，其次 Shizuku shell；普通身份仍是 App 自己的 shell。
+            if (identity == "root") {
+                PrivilegeAccess.startProcess(
+                    command = launcher,
+                    mergeStderr = mergeStderr,
+                    // Shell 身份读不到 App 私有目录，HOME 只在真实 Root 分支注入。
+                    environment = if (
+                        environment == TerminalEnvironment.ANDROID && !shellBackend
+                    ) {
+                        mapOf("HOME" to TerminalRuntime.userWorkspacePath)
+                    } else {
+                        emptyMap()
+                    },
+                    ownershipToken = ownershipToken.takeIf { shellBackend },
+                )
             } else {
-                ProcessBuilder("sh", "-c", launcher)
+                val builder = ProcessBuilder("sh", "-c", launcher)
+                if (environment == TerminalEnvironment.ANDROID) {
+                    builder.environment()["HOME"] = TerminalRuntime.userWorkspacePath
+                }
+                builder.redirectErrorStream(mergeStderr).start()
             }
-            if (identity == "user" && environment == TerminalEnvironment.ANDROID) {
-                builder.environment()["HOME"] = TerminalRuntime.userWorkspacePath
-            }
-            builder.redirectErrorStream(mergeStderr).start()
-        }.getOrElse {
+        }.getOrNull() ?: run {
             ownershipFile.delete()
             return null
         }
@@ -110,7 +135,7 @@ internal class ShellProcessSupervisor(
             metadata.ownershipFile.delete()
             return null
         }
-        val ownership = resolveProcessOwnership(metadata)
+        val ownership = resolveOwnership(process, metadata)
         val stillAccepted = synchronized(activeProcesses) {
             processMetadata[process] === metadata && !isClosing
         }
@@ -124,7 +149,7 @@ internal class ShellProcessSupervisor(
 
     internal fun ownershipOf(process: Process): ShellProcessOwnership? {
         val metadata = synchronized(activeProcesses) { processMetadata[process] } ?: return null
-        val ownership = resolveProcessOwnership(metadata) ?: return null
+        val ownership = resolveOwnership(process, metadata) ?: return null
         return ShellProcessOwnership(ownership.pid, metadata.ownershipToken, ownership.isolatedGroup)
     }
 
@@ -166,6 +191,7 @@ internal class ShellProcessSupervisor(
             activeProcesses -= process
             processMetadata.remove(process)
         }
+        (process as? ShizukuShellProcess)?.release()
         metadata?.ownershipFile?.delete()
     }
 
@@ -402,6 +428,15 @@ internal class ShellProcessSupervisor(
         reapProcess(process)
     }
 
+    /**
+     * Shizuku 进程的归属标记由 UserService 代读；Root 进程仍直接读 App 私有目录里的临时文件。
+     */
+    private fun resolveOwnership(process: Process, metadata: ProcessMetadata?): ProcessOwnership? {
+        val remote = (process as? ShizukuShellProcess)?.trackedOwner()
+        if (remote != null) parseProcessOwnership(remote)?.let { return it }
+        return metadata?.let(::resolveProcessOwnership)
+    }
+
     private fun resolveProcessOwnership(metadata: ProcessMetadata): ProcessOwnership? {
         metadata.ownership?.let { ownership -> return ownership }
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PROCESS_OWNERSHIP_WAIT_MS)
@@ -472,15 +507,14 @@ internal class ShellProcessSupervisor(
             command
         }
         val process = runCatching {
-            val builder = if (metadata.identity == "root") {
-                ProcessBuilder("su", "-c", guardedCommand)
+            if (metadata.identity == "root") {
+                PrivilegeAccess.startProcess(guardedCommand, mergeStderr = true)
             } else {
                 ProcessBuilder("sh", "-c", guardedCommand)
+                    .redirectOutput(File("/dev/null"))
+                    .redirectError(File("/dev/null"))
+                    .start()
             }
-            builder
-                .redirectOutput(File("/dev/null"))
-                .redirectError(File("/dev/null"))
-                .start()
         }.getOrNull() ?: return
         runCatching { process.outputStream.close() }
         val finished = runCatching {

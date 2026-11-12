@@ -93,7 +93,8 @@ internal fun TurnStatsPill(
     } else {
         null
     }
-    val speedText = tps?.let { "${formatTokensPerSecond(it)} tok/s" }
+    val tokenUnit = stringResource(R.string.chat_stats_token_unit)
+    val speedText = tps?.let { "${formatTokensPerSecond(it)} $tokenUnit/s" }
     val pillLabel = when {
         avgTtftMs != null && speedText != null -> "${formatStatDuration(avgTtftMs)} · $speedText"
         speedText != null -> speedText
@@ -158,22 +159,94 @@ internal fun TurnStatsPill(
             ChatStatsPopoverPopup(onDismissRequest = { open = false }) {
                 StatsSectionHeader(
                     icon = ChatActionIcons.Gauge,
-                    title = "会话统计",
-                    value = "1 轮 $steps 步",
+                    title = stringResource(R.string.chat_stats_title),
+                    value = stringResource(R.string.chat_stats_round_steps, 1, steps),
                 )
                 StatsSectionDivider()
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Token 明细：上下文长度、输入拆分与缓存命中率。
+                    usage.contextTokens?.let { tokens ->
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_context),
+                            value = "${formatExactTokenCount(tokens)} ${tokenUnit}",
+                        )
+                    }
+                    usage.inputTokens?.let { tokens ->
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_input),
+                            value = "${formatExactTokenCount(tokens)} ${tokenUnit}",
+                        )
+                    }
+                    usage.cachedTokens?.takeIf { it > 0 }?.let { tokens ->
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_cache_read),
+                            value = "${formatExactTokenCount(tokens)} ${tokenUnit}",
+                        )
+                        val rate = usage.inputTokens?.let { total -> formatCacheHitPercent(tokens, total) }
+                        if (rate != null) {
+                            StatsDetailRow(
+                                label = stringResource(R.string.chat_stats_cache_hit),
+                                value = "$rate%",
+                            )
+                        }
+                    }
+                    usage.outputTokens?.let { tokens ->
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_output),
+                            value = "${formatExactTokenCount(tokens)} ${tokenUnit}",
+                        )
+                    }
+                    usage.reasoningTokens?.takeIf { it > 0 }?.let { tokens ->
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_reasoning),
+                            value = "${formatExactTokenCount(tokens)} ${tokenUnit}",
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                StatsSectionHeader(
+                    icon = ChatActionIcons.Gauge,
+                    title = stringResource(R.string.chat_stats_speed),
+                    value = speedText,
+                )
+                StatsSectionDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (avgTtftMs != null && avgTtftMs > 0L) {
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_ttft_average),
+                            value = formatStatDuration(avgTtftMs),
+                        )
+                    }
+                    if (usage.ttftMs != null && usage.ttftMs > 0L) {
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_ttft_total),
+                            value = formatStatDuration(usage.ttftMs),
+                        )
+                    }
+                    if (ttftSteps > 0) {
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_ttft_steps),
+                            value = ttftSteps.toString(),
+                        )
+                    }
+                    if (usage.decodeMs != null && usage.decodeMs > 0L) {
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_decode),
+                            value = formatStatDuration(usage.decodeMs),
+                        )
+                    }
                     if (llmMs > 0L) {
-                        StatsDetailRow(label = "模型用时", value = formatStatDuration(llmMs))
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_model_time),
+                            value = formatStatDuration(llmMs),
+                        )
                     }
                     if (toolMs > 0L) {
-                        StatsDetailRow(label = "工具调用用时", value = formatStatDuration(toolMs))
-                    }
-                    if (avgTtftMs != null && avgTtftMs > 0L) {
-                        StatsDetailRow(label = "首 token 平均（TTFT）", value = formatStatDuration(avgTtftMs))
-                    }
-                    if (speedText != null) {
-                        StatsDetailRow(label = "输出速度（TPS）", value = speedText)
+                        StatsDetailRow(
+                            label = stringResource(R.string.chat_stats_tool_time),
+                            value = formatStatDuration(toolMs),
+                        )
                     }
                 }
             }

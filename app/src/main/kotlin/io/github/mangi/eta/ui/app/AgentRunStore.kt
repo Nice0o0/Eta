@@ -15,6 +15,8 @@ internal class AgentRunStore(
     private class Entry(val conversationId: String, val observed: Boolean) {
         var job: Job? = null
         var flushJob: Job? = null
+        /** 本轮是否已经显示过首个分片；首帧用一帧间隔刷新，之后回到常规节流。 */
+        var streamPrimed = false
         var stopRequested = false
         var stoppedByUser = false
         var settling = false
@@ -81,8 +83,11 @@ internal class AgentRunStore(
             if (event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL || event.delta.isEmpty()) return
             coalescer.append(runId, event)?.let { onEvent(runId, it) }
             if (entry.flushJob?.isActive != true) {
+                // 首个分片只等一帧就提交，让"正在生成"尽快变成可见文字；稳态再按 80ms 合并。
+                val delayMillis = if (entry.streamPrimed) STREAM_UI_UPDATE_INTERVAL_MS else FIRST_DELTA_INTERVAL_MS
+                entry.streamPrimed = true
                 entry.flushJob = scope.launch {
-                    delay(STREAM_UI_UPDATE_INTERVAL_MS)
+                    delay(delayMillis)
                     entry.flushJob = null
                     flush(runId)
                 }
@@ -107,5 +112,6 @@ internal class AgentRunStore(
 
     private companion object {
         const val STREAM_UI_UPDATE_INTERVAL_MS = 80L
+        const val FIRST_DELTA_INTERVAL_MS = 16L
     }
 }

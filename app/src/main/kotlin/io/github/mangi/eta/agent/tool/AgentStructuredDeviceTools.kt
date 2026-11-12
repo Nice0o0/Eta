@@ -24,6 +24,7 @@ import io.github.mangi.eta.agent.device.AgentNotificationHistoryService
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.DeviceToolContract
 import io.github.mangi.eta.agent.device.FlashlightController
+import io.github.mangi.eta.agent.device.PrivilegeAccess
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.phone.PhoneAppTools
@@ -41,7 +42,7 @@ internal class AgentStructuredDeviceTools(
     private val context: Context,
     private val logger: AgentLogger,
     private val root: BoundedRootCommandExecutor,
-    private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
+    private val rootAvailable: () -> Boolean = { PrivilegeAccess.isGranted },
     private val colorOs: () -> Boolean = { AgentToolCapabilities.isColorOsDevice() },
     private val foregroundAction: (String, () -> JSONObject) -> JSONObject = { _, action -> action() },
 ) {

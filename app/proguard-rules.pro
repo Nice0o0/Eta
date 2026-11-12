@@ -70,3 +70,13 @@
 -keep class io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain {
     public static void main(java.lang.String[]);
 }
+
+# Shizuku 通过反射实例化 UserService（并在独立进程加载 AIDL Stub），
+# 类名、构造与接口不能被裁剪或混淆，否则 release 包会启动失败。
+-keep class io.github.mangi.eta.agent.device.shizuku.EtaShellUserService {
+    public <init>();
+    public <init>(android.content.Context);
+}
+-keep interface io.github.mangi.eta.agent.device.shizuku.IEtaShellService { *; }
+-keep class io.github.mangi.eta.agent.device.shizuku.IEtaShellService$Stub { *; }
+-dontwarn rikka.shizuku.**

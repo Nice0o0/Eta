@@ -8,6 +8,7 @@ import android.os.Looper
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.agent.browser.BrowserSessionRegistry
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.ShizukuAccess
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -52,6 +53,8 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         }
         TerminalRuntime.initialize(this)
         RootAccess.initialize(this)
+        // Shizuku 是 Root 之外的第二条特权通道；初始化只读取状态，不会弹授权。
+        ShizukuAccess.initialize(this)
         applicationScope.launch { TerminalRuntime.backgroundJobs(this@EtaApp).resume() }
         SettingsDataStore.init(this)
         val predictiveBackEnabled = runBlocking(Dispatchers.IO) {

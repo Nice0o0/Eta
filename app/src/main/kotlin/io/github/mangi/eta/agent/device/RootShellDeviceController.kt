@@ -28,7 +28,7 @@ import org.xmlpull.v1.XmlPullParserFactory
 internal class RootShellDeviceController(
     private val logger: AgentLogger,
     private val screenshotExcludedPackages: () -> Set<String> = { emptySet() },
-    private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
+    private val rootAvailable: () -> Boolean = { PrivilegeAccess.isGranted },
 ) : AutoCloseable {
     private val processSupervisor = ShellProcessSupervisor(rootAvailable = rootAvailable)
 
@@ -1356,13 +1356,14 @@ internal class RootShellDeviceController(
     }
 
     private fun runRootProcess(command: String, timeoutSeconds: Long): ProcessBytesResult {
-        val envelope = RootCommandEnvelope(command)
+        // GUI 兜底命令同样可交给 Shizuku 的 shell 执行；只有真实 Root 才更新 su 授权状态。
+        val envelope = RootCommandEnvelope(command, requireRootUid = PrivilegeAccess.rootGranted)
         val result = runProcess(timeoutSeconds, envelope.script)
         val rootOutput = envelope.inspect(result.stderr.decodeToString())
         val completed = result.exitCode >= 0 && result.stderrComplete && !processSupervisor.isClosing
         if (rootOutput.denied(completed)) {
-            RootAccess.markDenied()
-            logger.warn("Agent root access outcome=denied code=ROOT_REQUIRED")
+            if (PrivilegeAccess.rootGranted) RootAccess.markDenied()
+            logger.warn("Agent privilege outcome=denied code=ROOT_REQUIRED")
             return ProcessBytesResult(-1, ByteArray(0), "ROOT_REQUIRED".toByteArray())
         }
         return result.copy(stderr = rootOutput.stderr.toByteArray())
@@ -1433,7 +1434,7 @@ internal class RootShellDeviceController(
         "Eta 无障碍服务未连接；请开启服务后重新观察屏幕",
     )
 
-    private fun rootRequired(): String = errorJson("ROOT_REQUIRED", "此操作需要设备 Root 权限")
+    private fun rootRequired(): String = errorJson("ROOT_REQUIRED", "此操作需要 Root 或 Shizuku 授权")
 
     private fun scrollErrorJson(
         tool: String,

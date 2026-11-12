@@ -45,6 +45,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.ShizukuAccess
 import io.github.mangi.eta.agent.runtime.AgentRuntimeService
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.AppearanceUiStyle
@@ -671,7 +672,7 @@ fun AgentAppRoot(
                                         context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                                             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
                                     }
-                                    "root" -> pushRoute(AppRoute.SystemEnhance)
+                                    "root", "shizuku" -> pushRoute(AppRoute.SystemEnhance)
                                 }
                             }
                         }
@@ -685,6 +686,8 @@ fun AgentAppRoot(
                             AgentSystemEnhanceAction.NavigateBack -> popRoute()
                             AgentSystemEnhanceAction.RequestRoot -> { RootAccess.request(context) }
                             AgentSystemEnhanceAction.RefreshRoot -> { RootAccess.refresh(context) }
+                            AgentSystemEnhanceAction.RequestShizuku -> { ShizukuAccess.request() }
+                            AgentSystemEnhanceAction.RefreshShizuku -> { ShizukuAccess.refresh() }
                         }
                     },
                 )

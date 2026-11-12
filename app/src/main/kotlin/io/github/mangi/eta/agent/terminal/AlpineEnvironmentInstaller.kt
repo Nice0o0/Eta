@@ -177,7 +177,8 @@ internal class AlpineEnvironmentInstaller(
         if (LinuxEnvironmentPaths.backendOf(AlpineEnvironmentPaths.rootfsDir(context).absolutePath) == LinuxExecutionBackend.PROOT) {
             return InstallerCommandResult(if (ProotCommandBuilder.available()) 0 else PREFLIGHT_ENVIRONMENT_UNAVAILABLE, "")
         }
-        if (!TerminalRuntime.rootAvailable) return InstallerCommandResult(PREFLIGHT_ROOT_UNAVAILABLE, "")
+        // chroot 安装需要真实 Root；Shizuku 的 shell 不能 mount/chroot。
+        if (!TerminalRuntime.rootOnlyAvailable) return InstallerCommandResult(PREFLIGHT_ROOT_UNAVAILABLE, "")
         val requiredApplets = listOf(
             "ash",
             "chroot",

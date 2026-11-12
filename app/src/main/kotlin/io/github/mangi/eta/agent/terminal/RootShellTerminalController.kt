@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.terminal
 
+import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.core.AgentLogger
 import io.github.mangi.eta.agent.tool.requiredText
 import java.io.File
@@ -290,7 +291,7 @@ internal class RootShellTerminalController(
             ?: return errorJson("DAEMON_UNAVAILABLE", "守护任务宿主不可用")
         if (taskId.isBlank()) return errorJson("INVALID_ARGUMENT", "task_id 不能为空")
         val task = supervisor.findTask(taskId) ?: return errorJson("TASK_NOT_FOUND", "未找到守护任务：$taskId")
-        if (task.identity == "root" && !rootAvailable()) return errorJson("ROOT_REQUIRED", "Root 授权不可用")
+        if (task.identity == "root" && !rootAvailable()) return errorJson("ROOT_REQUIRED", "Root 或 Shizuku 授权不可用")
         if (!supervisor.stop(taskId)) {
             return errorJson("DAEMON_STOP_FAILED", "守护任务停止失败，请重试")
         }
@@ -583,7 +584,7 @@ internal class RootShellTerminalController(
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
             fun checkActive() {
                 if (processSupervisor.isClosing) throw FileToolException("CANCELLED", "文件操作已取消")
-                if (identity == "root" && !rootAvailable()) throw FileToolException("ROOT_REQUIRED", "Root 授权已不可用")
+                if (identity == "root" && !rootAvailable()) throw FileToolException("ROOT_REQUIRED", "Root 或 Shizuku 授权已不可用")
                 if (System.nanoTime() >= deadline) throw FileToolException("FILE_TIMEOUT", "文件操作达到时间预算，请缩小范围")
             }
             val cwd = normalizeCwd(args.optString("cwd").takeIf(String::isNotEmpty), environment, identity)
@@ -658,7 +659,10 @@ internal class RootShellTerminalController(
                 "LINUX_ENVIRONMENT_NOT_READY",
                 "Linux 工具环境尚未安装，请先在设置中完成环境配置",
             )
-        identity == "root" && !rootAvailable() -> errorJson("ROOT_REQUIRED", "Root 授权不可用")
+        // chroot 依赖挂载与命名空间，只有真实 Root 可用；Shizuku 的 shell 不具备这些能力。
+        environment.isLinux && LinuxEnvironmentPaths.backendOf(rootfsPath) == LinuxExecutionBackend.CHROOT &&
+            !RootAccess.isGranted -> errorJson("ROOT_REQUIRED", "chroot 需要 Root 授权；也可改用 PRoot 环境")
+        identity == "root" && !rootAvailable() -> errorJson("ROOT_REQUIRED", "Root 或 Shizuku 授权不可用")
         environment.isLinux && LinuxEnvironmentPaths.backendOf(rootfsPath) == LinuxExecutionBackend.PROOT && identity == "root" ->
             errorJson("INVALID_IDENTITY", "免 Root Linux 使用普通应用身份，请使用 identity=user")
         else -> null

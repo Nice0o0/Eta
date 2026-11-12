@@ -368,7 +368,7 @@ internal class AgentRunMessageProjector(
             } else {
                 message
             }
-        }
+        }.dropBlankAssistantPlaceholders(runId, keepId = null)
 
     fun finalizeTextRound(
         runId: String,
@@ -387,7 +387,7 @@ internal class AgentRunMessageProjector(
             } else {
                 message
             }
-        }
+        }.dropBlankAssistantPlaceholders(runId, keepId = null)
     }
 
     fun finalizeTextBlock(
@@ -577,7 +577,8 @@ internal class AgentRunMessageProjector(
         } else {
             null
         }
-        return messages.map { message ->
+        // 乐观占位（空内容 + 流式中）在切换到别的块时直接移除，避免留下一行空白气泡。
+        return messages.dropBlankAssistantPlaceholders(runId, keepId = activeAssistantId).map { message ->
             when {
                 message is AgentMessageUi &&
                     message.isStreaming &&
@@ -613,6 +614,19 @@ internal class AgentRunMessageProjector(
         } else {
             this + message
         }
+    }
+
+    /**
+     * 丢弃本轮的空回答占位：它们只是首帧的"正在生成"提示，没有内容就不应留在对话里。
+     */
+    private fun List<AgentChatMessageUi>.dropBlankAssistantPlaceholders(
+        runId: String,
+        keepId: String?,
+    ): List<AgentChatMessageUi> = filterNot { message ->
+        message is AgentMessageUi &&
+            message.content.isBlank() &&
+            message.id != keepId &&
+            isAssistantMessageForRun(message.id, runId)
     }
 
     private fun assistantMessageId(runId: String, round: Int, index: Int): String =
@@ -738,6 +752,9 @@ internal class AgentRunMessageProjector(
                 it is SystemNoticeMessageUi && it.code == SystemNoticeCode.ModelRetry &&
                     it.id.startsWith("assistant-$runId-retry-")
             }
+
+        /** UI 侧首帧乐观占位使用的 id；必须与首个文本块 id 完全一致才能被就地接管。 */
+        fun assistantPlaceholderMessageId(runId: String): String = "assistant-$runId-1-0"
 
         private fun assistantMessagePrefix(runId: String): String =
             "assistant-$runId-"

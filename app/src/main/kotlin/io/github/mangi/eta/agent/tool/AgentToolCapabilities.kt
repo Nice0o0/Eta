@@ -8,15 +8,20 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.device.AgentNotificationHistoryService
+import io.github.mangi.eta.agent.device.PrivilegeAccess
 import io.github.mangi.eta.agent.device.RootAccessState
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.device.ShizukuAccess
+import io.github.mangi.eta.agent.device.ShizukuAccessState
 import java.util.Locale
 import org.json.JSONArray
 
 /** 每轮冻结的运行条件；不包含用户开关，也不触发授权请求。 */
 internal data class AgentToolCapabilities(
+    /** 特权能力：Root 或 Shizuku shell 任一可用；工具投影与所有门禁共用这一布尔值。 */
     val rootAvailable: Boolean,
     val rootState: RootAccessState? = null,
+    val shizukuState: ShizukuAccessState? = null,
     val lsposedAvailable: Boolean = false,
     val accessibilityAvailable: Boolean = true,
     val accessibilityRecoveryAvailable: Boolean = false,
@@ -77,9 +82,11 @@ internal data class AgentToolCapabilities(
 
         fun capture(context: Context): AgentToolCapabilities {
             val root = RootAccess.state.value
+            val shizuku = ShizukuAccess.state.value
             return AgentToolCapabilities(
-                rootAvailable = root.isGranted,
+                rootAvailable = PrivilegeAccess.isGranted,
                 rootState = root,
+                shizukuState = shizuku,
                 lsposedAvailable = EtaApp.serviceInstance != null,
                 accessibilityAvailable = AgentAccessibilityService.isAvailable(),
                 accessibilityRecoveryAvailable = EtaApp.serviceInstance != null &&

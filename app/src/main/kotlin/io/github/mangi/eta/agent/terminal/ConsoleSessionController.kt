@@ -71,7 +71,7 @@ internal class ConsoleSessionController(
             if (identity !in setOf("root", "user")) return OpenResult.Failed("INVALID_ARGUMENT", "执行身份无效")
             if (environment.isLinux && identity == "user" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) != LinuxExecutionBackend.PROOT) return OpenResult.Failed("LINUX_ENVIRONMENT_REQUIRES_ROOT", "所选 Linux 环境需要 Root")
             if (environment.isLinux && identity == "root" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) == LinuxExecutionBackend.PROOT) return OpenResult.Failed("INVALID_IDENTITY", "免 Root Linux 使用普通应用身份")
-            if (identity == "root" && !rootAvailable()) return OpenResult.Failed("ROOT_REQUIRED", "Root 授权不可用")
+            if (identity == "root" && !rootAvailable()) return OpenResult.Failed("ROOT_REQUIRED", "Root 或 Shizuku 授权不可用")
             if (environment.isLinux &&
                 !LinuxEnvironmentPaths.rootfsReady(environmentRootfsPath)
             ) {

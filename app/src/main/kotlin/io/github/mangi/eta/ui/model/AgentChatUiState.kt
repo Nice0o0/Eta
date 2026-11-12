@@ -57,6 +57,8 @@ data class UserMessageUi(
     val content: String,
     val images: List<String> = emptyList(),
     val isEdited: Boolean = false,
+    /** 发送时间（毫秒）；历史消息可能为 null。 */
+    val createdAt: Long? = null,
 ) : AgentChatMessageUi
 
 @Immutable
@@ -71,6 +73,8 @@ data class AgentMessageUi(
     val selectedCandidate: Int = 0,
     /** 仅当前内存会话展示，不进入消息存储、归档与导出。 */
     val searchSuggestionsHtml: List<String> = emptyList(),
+    /** 该轮回答开始产生的时间；历史消息可能为 null。 */
+    val createdAt: Long? = null,
 ) : AgentChatMessageUi
 
 enum class SystemNoticeCode(val wireValue: String) {

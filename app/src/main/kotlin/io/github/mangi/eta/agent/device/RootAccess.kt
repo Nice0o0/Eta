@@ -88,7 +88,14 @@ internal object RootAccess {
                     return@launch
                 }
                 val result = runInterruptible {
-                    BoundedRootCommandExecutor(AndroidAgentLogger, rootAvailable = { true }).use {
+                    // 探测只走 su：Shizuku 属于另一条通道，不能让它冒充 Root 授权结果。
+                    BoundedRootCommandExecutor(
+                        logger = AndroidAgentLogger,
+                        rootAvailable = { true },
+                        processStarter = { script, _ ->
+                            runCatching { ProcessBuilder("su", "-c", script).start() }.getOrNull()
+                        },
+                    ).use {
                         it.execute("id -u", timeoutMillis = 30_000L, maxOutputBytes = 256)
                     }
                 }

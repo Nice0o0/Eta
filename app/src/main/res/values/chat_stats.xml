@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_stats_title">Round stats</string>
+    <string name="chat_stats_round_steps">%1$d round · %2$d steps</string>
+    <string name="chat_stats_context">Context</string>
+    <string name="chat_stats_input">Input</string>
+    <string name="chat_stats_output">Output</string>
+    <string name="chat_stats_reasoning">Reasoning</string>
+    <string name="chat_stats_cache_hit">Cache hit</string>
+    <string name="chat_stats_cache_read">Cache read</string>
+    <string name="chat_stats_uncached_input">Uncached input</string>
+    <string name="chat_stats_ttft_average">TTFT average</string>
+    <string name="chat_stats_ttft_total">TTFT total</string>
+    <string name="chat_stats_ttft_steps">TTFT samples</string>
+    <string name="chat_stats_speed">Output speed (tok/s)</string>
+    <string name="chat_stats_decode">Decode time</string>
+    <string name="chat_stats_model_time">Model time</string>
+    <string name="chat_stats_tool_time">Tool time</string>
+    <string name="chat_stats_steps">Steps</string>
+    <string name="chat_stats_token_unit">tok</string>
+</resources>

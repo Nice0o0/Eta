@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_stats_title">本轮统计</string>
+    <string name="chat_stats_round_steps">%1$d 轮 · %2$d 步</string>
+    <string name="chat_stats_context">上下文</string>
+    <string name="chat_stats_input">输入</string>
+    <string name="chat_stats_output">输出</string>
+    <string name="chat_stats_reasoning">推理</string>
+    <string name="chat_stats_cache_hit">缓存命中</string>
+    <string name="chat_stats_cache_read">缓存读取</string>
+    <string name="chat_stats_uncached_input">未缓存输入</string>
+    <string name="chat_stats_ttft_average">首 token 平均（TTFT）</string>
+    <string name="chat_stats_ttft_total">首 token 合计</string>
+    <string name="chat_stats_ttft_steps">首 token 次数</string>
+    <string name="chat_stats_speed">输出速度（tok/s）</string>
+    <string name="chat_stats_decode">解码耗时</string>
+    <string name="chat_stats_model_time">模型用时</string>
+    <string name="chat_stats_tool_time">工具调用用时</string>
+    <string name="chat_stats_steps">步数</string>
+    <string name="chat_stats_token_unit">tok</string>
+</resources>

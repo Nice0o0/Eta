@@ -407,6 +407,7 @@ internal object AgentConversationStore {
                 content = content,
                 imagesJson = images.toJsonArrayString(),
                 isEdited = isEdited,
+                createdAt = createdAt,
             )
 
             is AgentMessageUi -> {
@@ -432,6 +433,7 @@ internal object AgentConversationStore {
                         ttftSteps = usage?.ttftSteps,
                         decodeMs = usage?.decodeMs,
                         decodeTokens = usage?.decodeTokens,
+                        createdAt = createdAt,
                     )
                 }
             }
@@ -488,6 +490,7 @@ internal object AgentConversationStore {
                 content = content,
                 images = imagesJson.toStringList(),
                 isEdited = isEdited,
+                createdAt = createdAt,
             )
 
             TYPE_ASSISTANT -> AgentMessageUi(
@@ -509,6 +512,7 @@ internal object AgentConversationStore {
                     decodeMs = decodeMs,
                     decodeTokens = decodeTokens,
                 ).takeUnless { it.isEmpty },
+                createdAt = createdAt,
             )
 
             TYPE_SYSTEM_NOTICE -> SystemNoticeCode.fromWireValue(content)?.let { code ->

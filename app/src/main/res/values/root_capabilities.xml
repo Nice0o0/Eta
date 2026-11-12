@@ -11,6 +11,14 @@
     <string name="capability_root_not_granted">Root access not granted; using standard mode</string>
     <string name="capability_root_request">Authorize</string>
     <string name="capability_root_refresh">Check again</string>
+    <!-- Shizuku：Root 之外的 shell（uid 2000）特权通道 -->
+    <string name="capability_shizuku">Shizuku</string>
+    <string name="capability_shizuku_summary">Optional shell-level privilege without Root; needs the Shizuku app running</string>
+    <string name="capability_shizuku_granted">Shell privilege granted; commands run as uid 2000</string>
+    <string name="capability_shizuku_not_granted">Shizuku is running but Eta has no permission; grant it here</string>
+    <string name="capability_shizuku_unavailable">Shizuku is not running or not installed; Root and standard mode remain available</string>
+    <string name="capability_shizuku_connecting">Permission granted; the shell service connects on first use</string>
+    <string name="capability_shizuku_requesting">Waiting for your confirmation in Shizuku…</string>
     <string name="capability_root_required">Root access required</string>
     <string name="capability_root_partial">Using standard capabilities; Root enables additional actions</string>
     <string name="capability_accessibility_required">Available after enabling accessibility</string>

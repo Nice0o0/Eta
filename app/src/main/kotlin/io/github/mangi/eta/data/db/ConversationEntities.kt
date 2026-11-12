@@ -141,4 +141,6 @@ internal data class ConversationMessageEntity(
     @ColumnInfo(name = "result_summary") val resultSummary: String? = null,
     @ColumnInfo(name = "image_count") val imageCount: Int = 0,
     @ColumnInfo(name = "tools_json") val toolsJson: String = "[]",
+    /** 消息产生时间；历史数据为 NULL，界面按"未知"处理，不伪造时间。 */
+    @ColumnInfo(name = "created_at") val createdAt: Long? = null,
 )

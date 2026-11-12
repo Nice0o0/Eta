@@ -1386,11 +1386,14 @@ internal class AgentAppState(
         val fileReferences = pendingFileReferences.map { it.reference }
         val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences)
         val runId = "run-${UUID.randomUUID()}"
+        val sentAt = System.currentTimeMillis()
         val userMessage = UserMessageUi(
             id = editBoundary?.userMessage?.id ?: "user-$runId",
             content = runtimePrompt,
             images = pendingImages.map { it.dataUrl },
             isEdited = editBoundary != null,
+            // 编辑时保留原消息时间；新消息记录真实的发送时刻。
+            createdAt = editBoundary?.userMessage?.createdAt ?: sentAt,
         )
         val history = editBoundary?.historyPrefix ?: state.history
         val messages = if (editBoundary == null) {
@@ -1646,6 +1649,27 @@ internal class AgentAppState(
             RuntimeConfigRepository.reasoningCapabilities(provider, model)?.normalize(reasoningEffort)
         } ?: ReasoningEffort.OFF
 
+        // 首帧即时反馈：先插入一个空回答占位，ChatMessageItem 会立即渲染"正在生成"，
+        // 首个文本增量到达后按 id 就地接管，不会产生第二条气泡。
+        val optimisticMessages = if (
+            operation == AgentRuntimeWire.OP_CHAT &&
+            messages.lastOrNull().let { it !is AgentMessageUi || !it.isStreaming }
+        ) {
+            messages + AgentMessageUi(
+                id = AgentRunMessageProjector.assistantPlaceholderMessageId(runId),
+                content = "",
+                isStreaming = true,
+                renderMarkdown = false,
+                createdAt = messages.asSequence()
+                    .filterIsInstance<UserMessageUi>()
+                    .lastOrNull()
+                    ?.createdAt
+                    ?: System.currentTimeMillis(),
+            )
+        } else {
+            messages
+        }
+
         updateConversation(
             conversationId,
             state.copy(
@@ -1654,14 +1678,39 @@ internal class AgentAppState(
                 history = if (operation == AgentRuntimeWire.OP_REWRITE_REPLY) state.history else history + listOfNotNull(userHistoryMessage),
                 journal = state.journal.ifEmpty { state.history } + listOfNotNull(userHistoryMessage),
                 isCompacting = operation == AgentRuntimeWire.OP_COMPACT,
-                messages = messages,
+                messages = optimisticMessages,
                 messageEdit = null,
             )
         )
-        refreshConversationSummaries()
+        // 一次发送的重建与摘要投影（重排全部会话）不能在提交后的同一帧完成，
+        // 否则首帧要等它们跑完才能绘制，表现为"点发送后画面不动"。
+        scope.launch(Dispatchers.Main) {
+            delay(FIRST_FRAME_DEFER_MS)
+            refreshConversationSummaries()
+        }
         val initialPersistence = persistConversations()
+        // 只有真实 Root 才能让 Runtime 脱离前台服务存活；Shizuku 仍需前台执行服务。
+        val executionLeaseId = if (!RootAccess.isGranted) "prepare:$runId" else null
 
         val preparationJob = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
+            if (executionLeaseId != null) {
+                val acquired = AgentExecutionService.acquire(appContext, executionLeaseId) {
+                    scope.launch(Dispatchers.Main.immediate) {
+                        if (runId in runStore.observedRunIds) stopRun(runId)
+                    }
+                }
+                if (!acquired) {
+                    withContext(Dispatchers.Main) {
+                        applyRunResult(runId, AgentRuntimeWire.RunResult(
+                            runId = runId,
+                            ok = false,
+                            content = "",
+                            error = appContext.getString(R.string.capability_background_failed),
+                        ))
+                    }
+                    return@launch
+                }
+            }
             // write-ahead：用户消息未提交前不把可能产生副作用的 run 交给 Runtime。
             if (!initialPersistence.await()) {
                 withContext(Dispatchers.Main) {
@@ -1777,24 +1826,10 @@ internal class AgentAppState(
             }
         }
         runStore.observe(runId, preparationJob)
-        if (!RootAccess.isGranted) {
-            val leaseId = "prepare:$runId"
-            val acquired = AgentExecutionService.acquire(appContext, leaseId) {
-                scope.launch(Dispatchers.Main.immediate) {
-                    if (runId in runStore.observedRunIds) stopRun(runId)
-                }
-            }
-            if (!acquired) {
-                preparationJob.cancel()
-                applyRunResult(runId, AgentRuntimeWire.RunResult(
-                    runId = runId,
-                    ok = false,
-                    content = "",
-                    error = appContext.getString(R.string.capability_background_failed),
-                ))
-                return
-            }
-            preparationJob.invokeOnCompletion { AgentExecutionService.release(leaseId) }
+        // 申请前台执行服务会走 startForegroundService 并建通知渠道；它只在真正交给 Runtime
+        // 之前才需要，因此留在准备任务里执行，不占用提交后的首帧。
+        if (executionLeaseId != null) {
+            preparationJob.invokeOnCompletion { AgentExecutionService.release(executionLeaseId) }
         }
         preparationJob.start()
     }
@@ -2577,6 +2612,8 @@ internal class AgentAppState(
     }
 
     private companion object {
+        /** 提交后让出一帧，让占位气泡与用户消息先绘制，再做整表摘要投影。 */
+        const val FIRST_FRAME_DEFER_MS = 32L
         const val MAX_TITLE_CHARS = 24
         const val MAX_PREVIEW_CHARS = 48
         const val LEGACY_STOPPED_ERROR = "已停止"

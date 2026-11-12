@@ -39,9 +39,12 @@
         android:protectionLevel="signature" />
 
     <uses-permission android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION" />
+    <!-- Shizuku：应用通过它申请 shell（uid 2000）级权限；未安装 Shizuku 时该权限不会授予。 -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
     <queries>
         <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="moe.shizuku.privileged.api" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -185,6 +188,14 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="io.github.mangi.eta.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <provider
             android:name=".agent.accessibility.AgentAccessibilityHealthProvider"

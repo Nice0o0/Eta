@@ -87,6 +87,7 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
+        aidl = true
     }
 
     androidResources {
@@ -170,6 +171,9 @@ dependencies {
     // 只使用 GFM 解析器；聊天渲染层由 ui/markdown 自建，按块冻结并接入逐字显现。
     implementation(libs.intellij.markdown)
     implementation(libs.hidden.api.bypass)
+    // Shizuku：provider 负责 binder 与权限回调，api 提供 shell 级 UserService 绑定
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值
     implementation(libs.datastore.preferences)

@@ -92,6 +92,7 @@ internal class WorkspaceFileStore(
 }
 
 private fun workspaceBackend(root: File): FileToolBackend {
+    // 工作区位于 App 私有目录，shell 身份无权访问；只有真实 Root 才能接管。
     if (!RootAccess.isGranted) return LocalFileToolBackend(root)
     val supervisor = ShellProcessSupervisor()
     return ShellFileToolBackend("android", "root", root.path, root.path) { command, input, limit ->

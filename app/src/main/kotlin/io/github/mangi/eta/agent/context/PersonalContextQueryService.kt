@@ -229,7 +229,7 @@ internal class PersonalContextQueryService(
         .put("ok", false).put("tool", "personal_context").put("code", code).put("message", message)
 
     private fun errorMessage(code: String): String = when (code) {
-        "ROOT_REQUIRED", "ROOT_UNAVAILABLE" -> "个人上下文索引需要可用的 Root 授权"
+        "ROOT_REQUIRED", "ROOT_UNAVAILABLE" -> "个人上下文索引需要可用的 Root 或 Shizuku 授权"
         "ROOT_EXECUTOR_CLOSED" -> "个人上下文查询已取消"
         "DMP_ACCESS_DENIED" -> "系统未允许访问此个人上下文来源，请检查系统数据授权及应用隐藏或加密状态"
         "DMP_RESOURCE_UNAVAILABLE" -> "当前系统未提供或未准备好此个人上下文来源"
