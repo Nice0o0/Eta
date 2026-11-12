@@ -72,9 +72,18 @@ internal object ShizukuShell {
     ): Process? {
         if (!awaitReady()) return null
         val binder = service ?: return null
-        val env = environment.entries.map { (key, value) -> "$key=$value" }.ifEmpty { null }
+        // AIDL 的 in String[] 在 Java 侧是数组，必须显式转成 Array 而不是 List。
+        val env = environment.entries
+            .map { (key, value) -> "$key=$value" }
+            .ifEmpty { null }
+            ?.toTypedArray()
         return try {
-            val handle = binder.spawn(arrayOf(SHELL_PATH, "-c", command), env, directory, ownershipToken)
+            val handle = binder.spawn(
+                arrayOf(SHELL_PATH, "-c", command),
+                env,
+                directory,
+                ownershipToken,
+            )
             if (handle <= 0) {
                 AndroidAgentLogger.warn("Shizuku shell spawn rejected")
                 null

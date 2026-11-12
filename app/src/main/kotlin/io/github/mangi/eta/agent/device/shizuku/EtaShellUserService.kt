@@ -17,13 +17,18 @@ import kotlin.concurrent.thread
  * 维护句柄到进程的映射。命令构造仍由 App 侧负责，模型参数不会直接进入这里。
  */
 @Keep
-class EtaShellUserService : IEtaShellService.Stub() {
+class EtaShellUserService : IEtaShellService.Stub {
 
     /**
-     * Shizuku 反射实例化时使用：无参构造由主构造提供，
-     * Context 构造覆盖 API 13 的实例化路径（需在 release 中保留）。
+     * Shizuku 反射实例化时使用；无参与 Context 两个构造都要保留，
+     * Context 构造覆盖 API 13 起的实例化路径。
+     * 这里显式声明辅助构造函数并调用 super()，不引入主构造，避免反射找不到预期签名。
      */
-    constructor(context: Context) : this()
+    @Keep
+    constructor() : super()
+
+    @Keep
+    constructor(context: Context) : super()
 
     private class Session(
         val process: Process,
