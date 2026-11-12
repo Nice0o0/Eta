@@ -37,8 +37,10 @@ jobs:
           set -euo pipefail
           ndk_version="$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
           echo "NDK 版本：$ndk_version"
-          yes | sdkmanager --channel=3 "ndk;$ndk_version" || yes | sdkmanager "ndk;$ndk_version"
-          sdkmanager --list_installed | sed -n '1,40p'
+          # setup-android 已接受许可，直接安装即可；不要用 yes | sdkmanager，
+          # sdkmanager 退出时 yes 会收到 EPIPE 并把管道退出码变成 1。
+          sdkmanager --channel=3 --install "ndk;$ndk_version"
+          ls "$ANDROID_HOME/ndk" || true
 
       - name: 打印构建环境
         shell: bash
