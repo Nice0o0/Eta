@@ -117,9 +117,12 @@ class RootlessDeviceToolsTest {
         }
     }
 
-    private fun rejectingRootExecutor() = BoundedRootCommandExecutor(NoOpLogger) {
-        error("普通实现不应尝试调用 Root")
-    }
+    private fun rejectingRootExecutor() = BoundedRootCommandExecutor(
+        logger = NoOpLogger,
+        // 特权入口现在还带一个 processStarter 参数，尾部 lambda 会绑定到它，
+        // 因此这里显式指定 rootAvailable。
+        rootAvailable = { error("普通实现不应尝试调用 Root") },
+    )
 
     private object NoOpLogger : AgentLogger {
         override fun debug(message: () -> String) = Unit
