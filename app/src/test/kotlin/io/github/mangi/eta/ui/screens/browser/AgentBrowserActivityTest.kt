@@ -22,7 +22,12 @@ class AgentBrowserActivityTest {
         val component = ComponentName(context, AgentBrowserActivity::class.java)
         val info = context.packageManager.getActivityInfo(component, 0)
         assertFalse(info.exported)
-        assertEquals(context.applicationInfo.processName, info.processName)
+        // Robolectric 在 SDK ≥ 28 时不再用包名补齐 ApplicationInfo.processName，
+        // 引入 ShizukuProvider（AAR 自带 provider + meta-data）后这里会是 null；
+        // 真机由 PackageManagerService 解析，始终有进程名。断言意图是"浏览器页不另起进程"，
+        // 因此按解析后的应用进程名比较。
+        val appProcessName = context.applicationInfo.processName ?: context.packageName
+        assertEquals(appProcessName, info.processName)
     }
 
     @Test
