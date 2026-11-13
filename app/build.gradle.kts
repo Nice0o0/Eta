@@ -22,6 +22,14 @@ java {
     }
 }
 
+// 调试包可选包名后缀：用于与正式签名的已装版本并存（签名不同的包无法覆盖安装）。
+val debugAppIdSuffix = providers.gradleProperty("eta.debugAppIdSuffix")
+    .orNull
+    ?.trim()
+    ?.takeIf { it.isNotEmpty() && it.matches(Regex("[A-Za-z0-9._-]+")) }
+    ?.let { ".$it" }
+    .orEmpty()
+
 // CI 对非发版构建传入提交号，按 SemVer 构建元数据追加为 +<sha>，不影响版本先后；本地与发版构建不传
 val buildMetadata = providers.gradleProperty("eta.buildMetadata").orNull?.takeIf { it.isNotBlank() }
 require(buildMetadata == null || buildMetadata.matches(Regex("[0-9A-Za-z.-]+"))) {
@@ -61,6 +69,8 @@ android {
 
     buildTypes {
         debug {
+            // 仅在显式传入 eta.debugAppIdSuffix 时追加，默认与正式包同名
+            if (debugAppIdSuffix.isNotEmpty()) applicationIdSuffix = debugAppIdSuffix
             // 版本名带构建类型标记，设置页与 APK 文件名据此区分 Debug 包
             versionNameSuffix = "-debug" + buildMetadataSuffix
             isMinifyEnabled = false

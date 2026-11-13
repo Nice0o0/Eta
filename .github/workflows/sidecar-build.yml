@@ -1,0 +1,64 @@
+name: Sidecar Build
+
+# 生成可与正式签名版本并存的调试包（包名追加 .ci 后缀），
+# 仅用于真机验证，不影响上游发版流程。产物需手动安装。
+on:
+  push:
+    branches:
+      - "sidecar/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sidecar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sidecar:
+    name: 并存调试包
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置构建环境
+        uses: ./.github/actions/setup-build
+
+      - name: 安装 NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ndk_version="$(sed -n 's/^ndk = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
+          sdkmanager --channel=3 --install "ndk;$ndk_version"
+
+      - name: 构建 .ci 后缀调试包
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: >-
+          ./gradlew --no-daemon --no-configuration-cache
+          "-Peta.buildMetadata=${HEAD_SHA::7}"
+          -Peta.debugAppIdSuffix=ci
+          :app:assembleDebug
+
+      - name: 校验实际包名
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
+          echo "APK: $apk"
+          aapt2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n 1)"
+          "$aapt2" dump badging "$apk" | grep -E "^package|application-label:" | head -n 3
+
+      - name: 上传并存包
+        uses: actions/upload-artifact@v4
+        with:
+          name: eta-sidecar-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
