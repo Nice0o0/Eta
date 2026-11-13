@@ -16,8 +16,14 @@ internal object AccessibilityProtectionProtocol {
         "io.github.mangi.eta.action.SET_ACCESSIBILITY_PROTECTION"
     const val ACTION_RECOVER =
         "io.github.mangi.eta.action.RECOVER_ACCESSIBILITY_SERVICE"
-    const val PERMISSION =
-        "io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
+    /**
+     * 自定义 signature 权限名随 applicationId 变化：并存安装的调试包需定义自己的权限，
+     * 否则不同签名定义同名 signature 权限会被系统以 DUPLICATE_PERMISSION 拒绝。
+     * 正式包展开后仍是 io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION。
+     */
+    @JvmField
+    val PERMISSION: String =
+        "${io.github.mangi.eta.BuildConfig.APPLICATION_ID}.permission.CONTROL_ACCESSIBILITY_PROTECTION"
     const val RECEIVER_PACKAGE = "android"
 
     const val EXTRA_PROTOCOL_VERSION = "protocol_version"

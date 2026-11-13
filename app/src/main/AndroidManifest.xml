@@ -35,10 +35,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <permission
-        android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
+        android:name="${applicationId}.permission.CONTROL_ACCESSIBILITY_PROTECTION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION" />
+    <uses-permission android:name="${applicationId}.permission.CONTROL_ACCESSIBILITY_PROTECTION" />
     <!-- Shizuku：应用通过它申请 shell（uid 2000）级权限；未安装 Shizuku 时该权限不会授予。 -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
